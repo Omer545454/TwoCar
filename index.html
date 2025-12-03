@@ -690,9 +690,11 @@ function createShopCard(container, item, type) {
   container.append(d);
 }
 
+// --- GÜNCELLENMİŞ GARAJ RENDER ---
 function renderGarage() {
   const list = document.getElementById('garageList'); list.innerHTML = '';
   
+  // 1. CARS
   store.ownedCars.forEach(id => {
     const c = CAR_DEFS.find(x => x.id === id);
     if(!c) return;
@@ -700,24 +702,30 @@ function renderGarage() {
     const isEquippedLeft = (equipped.left === id);
     const isEquippedRight = (equipped.right === id);
     
+    // Kutu Stili: Eğer herhangi bir tarafta seçiliyse parlasın
     let itemClass = 'shop-item';
     if(isEquippedLeft) itemClass += ' equipped-left';
     if(isEquippedRight) itemClass += ' equipped-right';
 
+    // Buton Stilleri
     const btnLeftClass = isEquippedLeft ? 'btn-equip active-left' : 'btn-equip';
+    const btnLeftText = isEquippedLeft ? 'SOLDA' : 'SOL';
+    
     const btnRightClass = isEquippedRight ? 'btn-equip active-right' : 'btn-equip';
+    const btnRightText = isEquippedRight ? 'SAĞDA' : 'SAĞ';
 
     const d = document.createElement('div'); d.className = itemClass;
     d.innerHTML = `
       <div style="font-weight:bold">${c.name}</div>
       <div class="car-preview"><img src="${carCache[id].src}"></div>
       <div class="btn-inline">
-        <button class="${btnLeftClass}" onclick="equipCar('${id}','left')">${isEquippedLeft ? 'SOLDA' : 'SOL'}</button>
-        <button class="${btnRightClass}" onclick="equipCar('${id}','right')">${isEquippedRight ? 'SAĞDA' : 'SAĞ'}</button>
+        <button class="${btnLeftClass}" onclick="equipCar('${id}','left')">${btnLeftText}</button>
+        <button class="${btnRightClass}" onclick="equipCar('${id}','right')">${btnRightText}</button>
       </div>`;
     list.append(d);
   });
 
+  // 2. ROADS
   store.ownedRoads.forEach(id => {
     const r = ROAD_DEFS.find(x => x.id === id);
     if(!r) return;
@@ -725,14 +733,16 @@ function renderGarage() {
     const isActive = (equipped.road === id);
     const itemClass = isActive ? 'shop-item equipped-active' : 'shop-item';
     const btnClass = isActive ? 'btn-equip active-general' : 'btn-equip';
+    const btnText = isActive ? 'SEÇİLİ' : 'KULLAN';
 
     const d = document.createElement('div'); d.className = itemClass;
     d.innerHTML = `<div style="font-weight:bold">${r.name}</div>
                    <div class="asset-preview" style="background:linear-gradient(${r.bg1}, ${r.bg2})"></div>
-                   <button class="${btnClass}" style="width:100%" onclick="equipRoad('${id}')">${isActive ? 'SEÇİLİ' : 'KULLAN'}</button>`;
+                   <button class="${btnClass}" style="width:100%" onclick="equipRoad('${id}')">${btnText}</button>`;
     list.append(d);
   });
 
+  // 3. COINS
   store.ownedCoins.forEach(id => {
     const c = COIN_DEFS.find(x => x.id === id);
     if(!c) return;
@@ -740,11 +750,12 @@ function renderGarage() {
     const isActive = (equipped.coin === id);
     const itemClass = isActive ? 'shop-item equipped-active' : 'shop-item';
     const btnClass = isActive ? 'btn-equip active-general' : 'btn-equip';
+    const btnText = isActive ? 'SEÇİLİ' : 'KULLAN';
 
     const d = document.createElement('div'); d.className = itemClass;
     d.innerHTML = `<div style="font-weight:bold">${c.name}</div>
                    <div class="asset-preview" style="color:${c.c1}">●</div>
-                   <button class="${btnClass}" style="width:100%" onclick="equipCoin('${id}')">${isActive ? 'SEÇİLİ' : 'KULLAN'}</button>`;
+                   <button class="${btnClass}" style="width:100%" onclick="equipCoin('${id}')">${btnText}</button>`;
     list.append(d);
   });
 }
