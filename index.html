@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Two Cars">
+<meta name="theme-color" content="#1a1a2e">
+
+<title>Two Cars — Fullscreen Fix</title>
+<style>
+:root{
+  --bg-1:#1a1a2e; --bg-2:#16213e; --panel: rgba(15, 52, 96, 0.98);
+  --accent:#e94560; --muted:#533483; --text:#e9fbf7; --coin:#ffd700;
+  --btn-left-active: #3498db; --btn-right-active: #e67e22; --btn-selected: #27ae60;
+}
+
+html {
+  /* Alttaki beyazlığı önlemek için HTML'e de renk veriyoruz */
+  background-color: #1a1a2e; 
+}
+
+html, body {
+  /* 100dvh: Mobil tarayıcıların adres çubuğu değişimine dinamik uyar */
+  height: 100dvh; 
+  margin: 0; padding: 0;
+  background: linear-gradient(180deg,var(--bg-1),var(--bg-2));
+  font-family: 'Segoe UI', sans-serif; color: var(--text);
+  overflow: hidden; 
+  touch-action: none; 
+  overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.wrap {
+  display: flex; align-items: center; justify-content: center;
+  /* Padding kaldırıldı, oyun ekranın kenarlarına yapışsın */
+  height: 100%; padding: 0; box-sizing: border-box;
+}
+
+canvas {
+  /* Max width kaldırılarak tam ekran hissi verilebilir veya korunabilir */
+  width: 100%; height: 100%; 
+  max-width: 500px; /* Tabletlerde çok yayılmasın diye sınır */
+  background: transparent; 
+  /* Border radius kaldırılarak tam bütünlük sağlandı */
+  border-radius: 0; 
+  display: block;
+  touch-action: none; 
+}
+
+/* --- HUD (SAFE AREA AYARLI) --- */
+.hud-pos { 
+  position:fixed; left:20px; z-index:4000; pointer-events:none; text-shadow:0 2px 4px rgba(0,0,0,0.8); 
+  /* Üst çentik (Notch) koruması */
+  top: max(20px, env(safe-area-inset-top)); 
+}
+.hud-coins { pointer-events:auto !important; }
+
+.add-coin-btn {
+  background: var(--accent); color: white; border: none; border-radius: 50%;
+  width: 24px; height: 24px; font-weight: bold; font-size: 16px;
+  margin-left: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3); pointer-events: auto;
+}
+
+.coin-row{display:flex; align-items:center; gap:8px; color:var(--coin); font-size:18px; font-weight:bold;}
+.coin-icon{
+  width:20px; height:20px; display:inline-block;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%23ffd700' stroke='%23e6c200' stroke-width='2'/%3E%3Cpath d='M12 6v12M6 12h12' stroke='%23e6c200' stroke-width='2'/%3E%3C/svg%3E");
+  background-size: contain; background-repeat: no-repeat;
+}
+
+.hud-scores { top: max(60px, calc(env(safe-area-inset-top) + 40px)); transition: opacity 0.3s; }
+.hud-scores .score{font-weight:900;font-size:32px;color:#fff;letter-spacing:1px}
+
+.controls{
+  position:fixed; right:20px; z-index:4000; 
+  top: max(20px, env(safe-area-inset-top));
+}
+.controls button{background:var(--accent);border:none;padding:12px 16px;border-radius:12px;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(233, 69, 96, 0.4); font-size:18px}
+#pauseBtn { width: 50px; display: none; justify-content: center; }
+
+/* --- MENU UI --- */
+.overlay{
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:3000; pointer-events:none;
+  /* Arkaplanı hafif karartalım ki oyun arkada belli olsun ama odak menüde olsun */
+  background: rgba(0,0,0,0.5);
+}
+.panel{
+  pointer-events:auto; background:var(--panel);
+  padding:24px; border-radius:24px; box-shadow:0 30px 80px #000;
+  width:90%; max-width:460px; 
+  /* Menü yüksekliğini ekranın altına çok yapıştırmadan ayarla */
+  max-height: calc(100dvh - 40px); 
+  display:flex; flex-direction:column;
+  border:1px solid rgba(255,255,255,0.1);
+  /* Alt çubuk (Home Indicator) için alttan boşluk bırak */
+  margin-bottom: env(safe-area-inset-bottom);
+}
+.panel h2{margin:0 0 20px 0; text-align:center; font-size:24px; color:#fff; text-transform:uppercase; letter-spacing:1px}
+
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-shrink:0; background:rgba(0,0,0,0.3); padding:4px; border-radius:12px}
+.tab{flex:1;padding:12px;text-align:center;border-radius:10px;cursor:pointer;font-weight:700;transition:0.3s; color:#8a8a8a}
+.tab.active{background:var(--accent);color:#fff; box-shadow:0 4px 12px rgba(233, 69, 96, 0.4)}
+
+.shop-tabs { display:flex; gap:5px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px; }
+.shop-tab { padding:8px 12px; border-radius:20px; background:rgba(255,255,255,0.1); color:#ccc; font-size:13px; font-weight:bold; cursor:pointer; white-space:nowrap; border:1px solid transparent; }
+.shop-tab.active { background:#fff; color:#1a1a2e; border-color:#fff; }
+
+.scroll-area{overflow-y:auto; padding-right:5px; flex:1; min-height:0; overscroll-behavior: contain;}
+.scroll-area::-webkit-scrollbar{width:4px}
+.scroll-area::-webkit-scrollbar-thumb{background:var(--accent);border-radius:4px}
+
+.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.shop-item{
+  background:rgba(255,255,255,0.05); padding:12px; border-radius:16px; 
+  display:flex; flex-direction:column; gap:10px; position:relative;
+  border:2px solid transparent; transition:transform 0.2s, border-color 0.3s, box-shadow 0.3s;
+}
+.shop-item:active{transform:scale(0.98)}
+.locked{opacity:0.5; filter:grayscale(0.8)}
+
+.shop-item.equipped-left { border-color: var(--btn-left-active); box-shadow: 0 0 15px rgba(52, 152, 219, 0.2); }
+.shop-item.equipped-right { border-color: var(--btn-right-active); box-shadow: 0 0 15px rgba(230, 126, 34, 0.2); }
+.shop-item.equipped-active { border-color: var(--btn-selected); box-shadow: 0 0 15px rgba(39, 174, 96, 0.2); }
+
+.car-preview{
+  height: 100px; width:100%; border-radius:12px; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.25); cursor:pointer; overflow:hidden; padding: 10px; box-sizing:border-box;
+}
+.car-preview img { height: auto; width: auto; max-height: 100%; max-width: 100%; object-fit: contain; filter:drop-shadow(0 10px 20px rgba(0,0,0,0.5)); transition: transform 0.3s; }
+
+.asset-preview {
+  height: 60px; width:100%; border-radius:8px; margin-bottom:5px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-buy{width:100%; padding:10px; border:none; border-radius:8px; font-weight:800; cursor:pointer; background:#ffd700; color:#000; box-shadow:0 4px 10px rgba(255, 215, 0, 0.3)}
+.btn-inline{display:flex; gap:8px}
+.btn-equip{
+  flex:1; padding:10px 5px; font-size:11px; border:none; border-radius:8px; cursor:pointer; 
+  background:#2c3e50; color:#aaa; font-weight:800; border: 1px solid transparent; transition:0.3s;
+}
+.btn-equip.active-left { background: var(--btn-left-active); color: white; border-color:white; box-shadow: 0 0 10px rgba(52, 152, 219, 0.5); cursor: default; }
+.btn-equip.active-right { background: var(--btn-right-active); color: white; border-color:white; box-shadow: 0 0 10px rgba(230, 126, 34, 0.5); cursor: default; }
+.btn-equip.active-general { background: var(--btn-selected); color: white; border-color:white; box-shadow: 0 0 10px rgba(39, 174, 96, 0.5); cursor: default; }
+
+/* MODALS */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:9000;padding:20px}
+.modal{background:#1a1a2e; padding:24px; border-radius:20px; width:100%; max-width:340px; text-align:center; box-shadow:0 10px 50px #000; border:1px solid rgba(255,255,255,0.1)}
+.modal h3{margin-top:0; color:#fff; font-size:20px}
+.modal .actions{display:flex; gap:12px; justify-content:center; margin-top:24px}
+.modal button{padding:12px 24px; border-radius:10px; border:none; cursor:pointer; font-weight:800; font-size:14px}
+
+.preview-content{background:#16213e; padding:24px; border-radius:24px; width:100%; max-width:340px; text-align:center; position:relative}
+.preview-big-box{height:180px; background:rgba(0,0,0,0.2); margin:20px 0; border-radius:16px; display:flex; align-items:center; justify-content:center}
+.preview-big-box img { height: auto; width: auto; max-height: 80%; max-width: 80%; filter:drop-shadow(0 15px 30px rgba(0,0,0,0.6)); }
+
+.hidden{display:none !important; opacity: 0; pointer-events: none;}
+.lock-badge{position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.8); color:var(--coin); font-size:12px; padding:4px 8px; border-radius:6px; font-weight:bold; display:flex; align-items:center; gap:4px; box-shadow:0 2px 5px rgba(0,0,0,0.5)}
+/* Footer Note: Safe Area'nın üstünde kalması için */
+.footer-note{
+  position:fixed; bottom: max(10px, env(safe-area-inset-bottom)); 
+  width:100%; text-align:center; font-size:12px; opacity:0.3; pointer-events:none 
+}
+
+.settings-box { background:rgba(255,255,255,0.05); padding:16px; border-radius:12px; margin-bottom:12px; }
+.settings-label { display:block; margin:0 0 8px 0; font-size:13px; color:#8aa; font-weight:700; text-transform:uppercase }
+.settings-select { width:100%; padding:12px; border-radius:8px; background:#0f3460; color:#fff; border:1px solid rgba(255,255,255,0.1); font-weight:bold; outline:none }
+
+.selected-car-box { flex:1; padding:15px; border-radius:12px; text-align:center; transition: all 0.3s ease; }
+.selected-left { background: linear-gradient(135deg, rgba(52, 152, 219, 0.2), rgba(0,0,0,0.2)); border: 2px solid rgba(52, 152, 219, 0.4); }
+.selected-right { background: linear-gradient(135deg, rgba(230, 126, 34, 0.2), rgba(0,0,0,0.2)); border: 2px solid rgba(230, 126, 34, 0.4); }
+.selected-label { font-size:12px; color:#aaa; margin-bottom: 5px; font-weight: 700; letter-spacing: 1px; }
+.selected-name { font-weight:800; color:#fff; font-size: 18px; }
+</style>
+</head>
+<body>
+
+<div class="wrap"><canvas id="game"></canvas></div>
+
+<div class="hud-pos hud-coins">
+  <div class="coin-row">
+    <div id="activeCoinIcon" class="coin-icon"></div> 
+    <span id="coins">0</span>
+    <button class="add-coin-btn" onclick="openBuyCoins()">+</button>
+  </div>
+</div>
+
+<div id="hudScores" class="hud-pos hud-scores hidden">
+  <div><span id="score" class="score">0</span></div>
+  <div style="font-size:13px; opacity:0.6; font-weight:600; margin-top:4px">EN İYİ: <span id="high">0</span></div>
+</div>
+
+<div class="controls">
+  <button id="pauseBtn">I I</button>
+</div>
+
+<div class="overlay" id="menuOverlay" style="pointer-events:auto;opacity:1;">
+  <div class="panel">
+    <h2>TWO CARS</h2>
+    <div class="tabs">
+      <div class="tab active" data-tab="play">Oyna</div>
+      <div class="tab" data-tab="garage">Garaj</div>
+      <div class="tab" data-tab="shop">Mağaza</div>
+    </div>
+
+    <div id="contentArea" class="scroll-area">
+      <div id="tabPlay" class="tabContent">
+        <div class="settings-box">
+          <label class="settings-label">Oyun Modu</label>
+          <select id="gameMode" class="settings-select">
+            <option value="2">2 Araba (Klasik)</option>
+            <option value="1">1 Araba (Tek Şerit)</option>
+          </select>
+        </div>
+        <div class="settings-box">
+          <label class="settings-label">Zorluk</label>
+          <select id="difficulty" class="settings-select">
+            <option value="0.85">Rahat (Yavaş)</option>
+            <option value="1" selected>Normal</option>
+            <option value="1.2">Adrenalin (Hızlı)</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:15px; margin:20px 0">
+          <div class="selected-car-box selected-left">
+            <div class="selected-label">SOL (1P)</div>
+            <div id="leftCarName" class="selected-name">Sedan</div>
+          </div>
+          <div class="selected-car-box selected-right">
+            <div class="selected-label">SAĞ</div>
+            <div id="rightCarName" class="selected-name">Sedan</div>
+          </div>
+        </div>
+        <button id="playNow" style="width:100%; padding:18px; margin-top:10px; background:var(--accent); border:none; border-radius:14px; font-weight:900; font-size:20px; color:#fff; cursor:pointer; box-shadow:0 8px 25px rgba(233,69,96,0.5)">OYNA</button>
+      </div>
+
+      <div id="tabGarage" class="tabContent hidden">
+        <div style="text-align:center; color:#8aa; margin-bottom:10px">Sahip Oldukların</div>
+        <div id="garageList" class="shop-grid"></div>
+      </div>
+
+      <div id="tabShop" class="tabContent hidden">
+        <div class="shop-tabs">
+          <div class="shop-tab active" onclick="filterShop('cars')">Arabalar</div>
+          <div class="shop-tab" onclick="filterShop('roads')">Yollar</div>
+          <div class="shop-tab" onclick="filterShop('coins')">Coinler</div>
+        </div>
+        <div id="shopList" class="shop-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="inAppModalRoot" style="display:none"></div>
+
+<div id="previewModal" class="modal-backdrop hidden">
+  <div class="preview-content">
+    <button onclick="document.getElementById('previewModal').classList.add('hidden')" style="position:absolute; right:15px; top:15px; background:none; border:none; color:#fff; font-size:20px; cursor:pointer; opacity:0.7">✕</button>
+    <h3 id="previewTitle">Araç</h3>
+    <div id="previewBigBox" class="preview-big-box"></div>
+    <div id="previewStatus" style="font-weight:bold; font-size:18px; color:#ffd700"></div>
+  </div>
+</div>
+
+<div id="gameOverModal" class="modal-backdrop hidden" style="z-index:10000">
+  <div class="modal">
+    <h2 style="color:#e94560; font-size:32px; margin-bottom:10px">KAZA!</h2>
+    <p id="finalScore" style="font-size:48px; font-weight:900; color:#fff; margin:10px 0 30px 0">0</p>
+    <div class="actions">
+      <button id="menuBtn" style="background:#16213e; color:#fff; border:1px solid #333">Menü</button>
+      <button id="retryBtn" style="background:#e94560; color:#fff">Tekrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="pauseModal" class="modal-backdrop hidden" style="z-index:10001">
+  <div class="modal">
+    <h3>DURAKLATILDI</h3>
+    <div class="actions" style="flex-direction:column; width:100%; gap:12px">
+      <button id="resumeBtn" style="background:#e94560; color:#fff">Devam Et</button>
+      <button id="pauseRetryBtn" style="background:#16213e; color:#fff; border:1px solid #444">Yeniden Başlat</button>
+      <button id="pauseMenuBtn" style="background:#16213e; color:#bbb; border:1px solid #333">Ana Menü</button>
+    </div>
+  </div>
+</div>
+
+<div id="purchaseModal" class="modal-backdrop hidden" style="z-index:11000">
+  <div class="modal">
+    <h3 style="color:#ffd700">Mağaza</h3>
+    <p style="color:#ccc; margin-bottom:20px">5000 Coin Satın Al</p>
+    <div style="background:rgba(255,255,255,0.1); padding:15px; border-radius:10px; margin-bottom:20px; font-size:24px; font-weight:bold; color:#fff">
+      10.00 TL
+    </div>
+    <div class="actions">
+      <button onclick="document.getElementById('purchaseModal').classList.add('hidden')" style="background:#333; color:#fff">İptal</button>
+      <button onclick="confirmPurchase()" style="background:#27ae60; color:#fff">SATIN AL</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer-note">v10.0 iOS Native Feel</div>
+
+<script>
+// --- 1. DEFINITIONS ---
+const CAR_DEFS = [
+  {id:'classic', name:'Sedan',    type:'sedan',  cost:0,    left:'#3498db', right:'#2980b9'},
+  {id:'taxi',    name:'Taksi',    type:'taxi',   cost:30,   left:'#f1c40f', right:'#e67e22'},
+  {id:'police',  name:'Polis',    type:'police', cost:100,  left:'#ecf0f1', right:'#bdc3c7'},
+  {id:'bus',     name:'Otobüs',   type:'bus',    cost:200,  left:'#e74c3c', right:'#c0392b'},
+  {id:'truck',   name:'Kamyon',   type:'truck',  cost:350,  left:'#95a5a6', right:'#7f8c8d'},
+  {id:'sport',   name:'Spor',     type:'sport',  cost:500,  left:'#9b59b6', right:'#8e44ad'},
+  {id:'racer',   name:'F1 Racer', type:'racer',  cost:800,  left:'#e67e22', right:'#d35400'},
+  {id:'tank',    name:'Panzer',   type:'tank',   cost:1200, left:'#2ecc71', right:'#27ae60'},
+  {id:'ufo',     name:'UFO',      type:'ufo',    cost:1600, left:'#1abc9c', right:'#16a085'},
+  {id:'cyber',   name:'CyberJet', type:'cyber',  cost:2000, left:'#d63031', right:'#ff7675'},
+  {id:'limo',    name:'Limuzin',  type:'sedan',  cost:2500, left:'#2c3e50', right:'#34495e'},
+  {id:'gold',    name:'Midas',    type:'sedan',  cost:3200, left:'#ffd700', right:'#daa520'},
+  {id:'toxic',   name:'Toxic GT', type:'sport',  cost:4000, left:'#00ff00', right:'#2ecc71'},
+  {id:'phantom', name:'Phantom',  type:'cyber',  cost:5000, left:'#6c5ce7', right:'#a29bfe'},
+  {id:'fire',    name:'Inferno',  type:'racer',  cost:6500, left:'#ff4757', right:'#ff6b81'},
+  {id:'ice',     name:'SubZero',  type:'tank',   cost:8000, left:'#00d2d3', right:'#48dbfb'},
+  {id:'noir',    name:'Noir',     type:'classic',cost:9500, left:'#000000', right:'#2d3436'},
+  {id:'neon',    name:'Neon X',   type:'cyber',  cost:11000,left:'#ff00ff', right:'#00ffff'},
+  {id:'royal',   name:'Royal',    type:'bus',    cost:13000,left:'#6D214F', right:'#B33771'},
+  {id:'swat',    name:'SWAT',     type:'police', cost:13000,left:'#1e272e', right:'#485460'},
+  {id:'dragon',  name:'Ejderha',  type:'racer',  cost:16000,left:'#c0392b', right:'#f1c40f'},
+  {id:'infinity',name:'Sonsuzluk',type:'cyber',  cost:25000,left:'#ffffff', right:'#00ffff'}
+];
+
+const ROAD_DEFS = [
+  {id:'default', name:'Gece Mavisi', cost:0,    bg1:'#1a1a2e', bg2:'#16213e', line:'#ffffff'},
+  {id:'magma',   name:'Magma',       cost:1000, bg1:'#2e0000', bg2:'#520000', line:'#ff4500'},
+  {id:'desert',  name:'Çöl Fırtınası',cost:2000, bg1:'#4b3621', bg2:'#654321', line:'#f1c40f'},
+  {id:'matrix',  name:'Matrix',      cost:3500, bg1:'#000000', bg2:'#001a00', line:'#00ff00'},
+  {id:'ice',     name:'Kutup',       cost:5000, bg1:'#002b36', bg2:'#004d61', line:'#a8e6cf'},
+  {id:'royal',   name:'Asil Mor',    cost:7500, bg1:'#240046', bg2:'#3c096c', line:'#e0aaff'}
+];
+
+const COIN_DEFS = [
+  {id:'default', name:'Altın',   cost:0,    c1:'#ffd700', c2:'#d35400'},
+  {id:'silver',  name:'Gümüş',   cost:1500, c1:'#bdc3c7', c2:'#7f8c8d'},
+  {id:'ruby',    name:'Yakut',   cost:3000, c1:'#e74c3c', c2:'#c0392b'},
+  {id:'emerald', name:'Zümrüt',  cost:4500, c1:'#2ecc71', c2:'#27ae60'},
+  {id:'sapphire',name:'Safir',   cost:6000, c1:'#3498db', c2:'#2980b9'},
+  {id:'crypto',  name:'Bitcoin', cost:8000, c1:'#f7931a', c2:'#e67e22'}
+];
+
+const store = {
+  high: parseInt(localStorage.getItem('tc_high')||'0'),
+  coins: parseInt(localStorage.getItem('tc_coins')||'0'),
+  ownedCars: JSON.parse(localStorage.getItem('tc_owned')||'["classic"]'),
+  ownedRoads: JSON.parse(localStorage.getItem('tc_roads')||'["default"]'),
+  ownedCoins: JSON.parse(localStorage.getItem('tc_coin_skins')||'["default"]')
+};
+
+let equipped = {
+  left: localStorage.getItem('tc_left') || 'classic',
+  right: localStorage.getItem('tc_right') || 'classic',
+  road: localStorage.getItem('tc_road') || 'default',
+  coin: localStorage.getItem('tc_coin') || 'default'
+};
+
+let currentShopTab = 'cars';
+
+function makeCarDataURL(p, s, type) {
+  let inner = '';
+  const shadow = `<ellipse cx="100" cy="180" rx="60" ry="10" fill="rgba(0,0,0,0.5)" />`;
+  const wheels = `
+    <rect x="20" y="40" width="15" height="25" rx="5" fill="#111"/> <rect x="165" y="40" width="15" height="25" rx="5" fill="#111"/>
+    <rect x="20" y="140" width="15" height="25" rx="5" fill="#111"/> <rect x="165" y="140" width="15" height="25" rx="5" fill="#111"/>`;
+
+  if(type==='sedan') inner=`${shadow}${wheels}<path d="M40 170 L160 170 Q180 170 180 140 L180 60 Q180 30 160 30 L40 30 Q20 30 20 60 L20 140 Q20 170 40 170 Z" fill="${p}" stroke="${s}" stroke-width="4"/><path d="M50 50 L150 50 L140 100 L60 100 Z" fill="#111" opacity="0.4"/><path d="M60 150 L140 150 L150 110 L50 110 Z" fill="#111" opacity="0.2"/>`;
+  else if(type==='taxi') inner=`${shadow}${wheels}<rect x="35" y="30" width="130" height="140" rx="15" fill="#f1c40f" stroke="#e67e22" stroke-width="4"/><rect x="50" y="50" width="100" height="40" rx="5" fill="#333"/><rect x="50" y="110" width="100" height="30" rx="5" fill="#333"/><rect x="80" y="60" width="40" height="15" fill="#fff" opacity="0.9"/>`;
+  else if(type==='police') inner=`${shadow}${wheels}<path d="M40 170 L160 170 L160 30 L40 30 Z" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2"/><rect x="40" y="30" width="120" height="40" fill="#2c3e50"/><rect x="40" y="130" width="120" height="40" fill="#2c3e50"/><path d="M50 50 L150 50 L140 90 L60 90 Z" fill="#111" opacity="0.8"/><rect x="65" y="95" width="30" height="12" fill="#e74c3c"/><rect x="105" y="95" width="30" height="12" fill="#3498db"/>`;
+  else if(type==='truck') inner=`${shadow}<rect x="35" y="60" width="130" height="130" rx="8" fill="${p}" stroke="${s}" stroke-width="4"/><rect x="45" y="70" width="110" height="110" rx="4" fill="rgba(255,255,255,0.15)"/><rect x="80" y="40" width="40" height="20" fill="#333"/><path d="M45 40 L155 40 L155 10 Q155 5 135 5 L65 5 Q45 5 45 10 Z" fill="${s}"/><rect x="55" y="20" width="90" height="15" rx="3" fill="#333"/>${wheels}`;
+  else if(type==='bus') inner=`${shadow}<rect x="30" y="20" width="140" height="170" rx="10" fill="${p}" stroke="${s}" stroke-width="4"/><rect x="40" y="30" width="120" height="35" rx="4" fill="#333"/><rect x="40" y="80" width="120" height="25" fill="#333" opacity="0.4"/><rect x="40" y="115" width="120" height="25" fill="#333" opacity="0.4"/><rect x="40" y="150" width="120" height="25" fill="#333" opacity="0.4"/>${wheels}`;
+  else if(type==='sport') inner=`${shadow}${wheels}<path d="M50 180 L150 180 L150 160 L50 160 Z" fill="${s}" /><path d="M40 150 L160 150 L170 80 L100 20 L30 80 Z" fill="${p}" /><path d="M50 80 L100 30 L150 80 Z" fill="#111" opacity="0.6"/><rect x="80" y="90" width="40" height="60" fill="rgba(255,255,255,0.1)"/>`;
+  else if(type==='racer') inner=`${shadow}${wheels}<path d="M60 170 L140 170 L130 30 L70 30 Z" fill="${p}" stroke="${s}" stroke-width="2"/><rect x="90" y="30" width="20" height="140" fill="rgba(255,255,255,0.2)"/><path d="M60 170 L40 150 L40 110 L60 90 Z" fill="${s}"/><path d="M140 170 L160 150 L160 110 L140 90 Z" fill="${s}"/>`;
+  else if(type==='tank') inner=`${shadow}<rect x="25" y="20" width="25" height="170" fill="#2c3e50" rx="5"/><rect x="150" y="20" width="25" height="170" fill="#2c3e50" rx="5"/><rect x="50" y="40" width="100" height="130" fill="${p}"/><circle cx="100" cy="100" r="35" fill="${s}"/><rect x="90" y="10" width="20" height="90" fill="#1e8449"/>`;
+  else if(type==='ufo') inner=`${shadow}<circle cx="100" cy="100" r="75" fill="${p}" stroke="${s}" stroke-width="4"/><circle cx="100" cy="100" r="35" fill="rgba(0,0,0,0.5)"/><circle cx="100" cy="100" r="15" fill="#fff" opacity="0.5"/>`;
+  else if(type==='cyber') inner=`${shadow}<path d="M90 180 L110 180 L100 200 Z" fill="#0ff" opacity="0.6"/><path d="M100 10 L180 160 L100 150 L20 160 Z" fill="${p}" stroke="${s}" stroke-width="3"/><ellipse cx="100" cy="80" rx="25" ry="35" fill="#111" stroke="${s}" stroke-width="2"/>`;
+  else if(type==='classic') inner=`${shadow}${wheels}<rect x="30" y="30" width="140" height="140" rx="2" fill="${p}"/><rect x="40" y="50" width="120" height="40" fill="#111"/><path d="M30 30 L170 30 L160 10 L40 10 Z" fill="${s}"/>`;
+
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'>${inner}</svg>`);
+}
+
+const carCache = {};
+CAR_DEFS.forEach(c => {
+  const img = new Image();
+  img.src = makeCarDataURL(c.left, c.right, c.type);
+  carCache[c.id] = img;
+});
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let DPR = window.devicePixelRatio || 1;
+
+function resize() {
+  const rect = document.querySelector('.wrap').getBoundingClientRect();
+  canvas.width = rect.width * DPR;
+  canvas.height = rect.height * DPR;
+  ctx.scale(DPR, DPR);
+}
+window.addEventListener('resize', resize); resize();
+
+const players = {
+  left: {lane:0, x:null, carId:equipped.left}, 
+  right:{lane:2, x:null, carId:equipped.right} 
+};
+
+let obstacles = [];
+let particles = [];
+let score = 0;
+let running = false;
+let paused = false;
+let lastTime = 0;
+let spawnTimer = 0;
+let LANE_COUNT = 4;
+let GAME_MODE = 2; 
+let laneW = 0;
+
+function update(time) {
+  if (!running || paused) { lastTime = time; return; }
+  const dt = (time - lastTime) / 1000;
+  lastTime = time;
+
+  const W = canvas.width / DPR;
+  const H = canvas.height / DPR;
+  laneW = W / LANE_COUNT;
+  
+  const diffMult = parseFloat(document.getElementById('difficulty').value);
+  const speed = (380 + score * 12) * diffMult;
+  const spawnRate = Math.max(0.32, (1.0 - score * 0.01)) / diffMult;
+
+  spawnTimer += dt;
+  if (spawnTimer > spawnRate) {
+    spawnTimer = 0;
+    let laneIdx;
+    if (GAME_MODE === 1) {
+       laneIdx = Math.random() < 0.5 ? 0 : 1;
+    } else {
+       const side = Math.random() < 0.5 ? 'left' : 'right';
+       const laneOffset = side === 'left' ? 0 : 2;
+       laneIdx = laneOffset + (Math.random() < 0.5 ? 0 : 1);
+    }
+    const type = Math.random() < 0.65 ? 'circle' : 'square';
+    obstacles.push({ lane: laneIdx, y: -100, type: type, claimed: false });
+  }
+
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    let ob = obstacles[i];
+    ob.y += speed * dt;
+    const playerY = H - 80; 
+    const hitZone = 30; 
+
+    if (!ob.claimed && ob.y > playerY - hitZone && ob.y < playerY + hitZone) {
+      let p;
+      if (GAME_MODE === 1) { p = players.left; } 
+      else {
+         const side = ob.lane < 2 ? 'left' : 'right';
+         p = players[side];
+      }
+      if (ob.lane === p.lane) {
+        if (ob.type === 'circle') {
+          score++; store.coins++; ob.claimed = true;
+          spawnParticles(laneW * ob.lane + laneW/2, ob.y, getCoinColor().c1, 8);
+          updateHUD(); saveData();
+        } else {
+          gameOver(laneW * ob.lane + laneW/2, ob.y);
+        }
+      } 
+    }
+    if (!ob.claimed && ob.y > playerY + hitZone) {
+      if(ob.type === 'circle') gameOver(laneW * ob.lane + laneW/2, ob.y);
+      ob.claimed = true;
+    }
+    if (ob.y > H + 50) obstacles.splice(i, 1);
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2.5; 
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  draw(W, H, dt);
+  requestAnimationFrame(update);
+}
+
+function getCoinColor() {
+  return COIN_DEFS.find(c => c.id === equipped.coin) || COIN_DEFS[0];
+}
+
+function getRoadColor() {
+  return ROAD_DEFS.find(r => r.id === equipped.road) || ROAD_DEFS[0];
+}
+
+function draw(W, H, dt) {
+  const road = getRoadColor();
+  const coin = getCoinColor();
+
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, road.bg1);
+  grad.addColorStop(1, road.bg2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = road.line; 
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.3; 
+  ctx.setLineDash([12, 12]);
+  for (let i = 1; i < LANE_COUNT; i++) {
+    ctx.beginPath(); ctx.moveTo(laneW * i, 0); ctx.lineTo(laneW * i, H); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1.0;
+
+  const refWidth = W / 4; const size = refWidth * 0.55; 
+
+  obstacles.forEach(ob => {
+    if (ob.claimed) return;
+    const cx = laneW * ob.lane + laneW / 2;
+    if (ob.type === 'circle') {
+      const g = ctx.createRadialGradient(cx, ob.y, size/8, cx, ob.y, size/2);
+      g.addColorStop(0, '#fff'); g.addColorStop(0.3, coin.c1); g.addColorStop(1, coin.c2);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, ob.y, size/2, size/4, 0, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.fillStyle = '#ff4757'; ctx.fillRect(cx - size/2, ob.y - size/4, size, size/2);
+      ctx.fillStyle = '#ff6b81'; ctx.fillRect(cx - size/2, ob.y - size/4, size, 5);
+    }
+  });
+  
+  drawCarSmooth(players.left, H, refWidth, dt);
+  if (GAME_MODE === 2) drawCarSmooth(players.right, H, refWidth, dt);
+  
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life; ctx.fillStyle = p.c;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawCarSmooth(p, H, refW, dt) {
+  const targetX = (laneW * p.lane) + (laneW/2);
+  if (p.x === null) p.x = targetX;
+  p.x += (targetX - p.x) * 20 * dt; 
+  const carW = refW * 0.55; const carH = carW * 1.0; 
+  const y = H - 80 - carH / 2;
+  const img = carCache[p.carId];
+  if (img && img.complete) ctx.drawImage(img, p.x - carW/2, y, carW, carH);
+}
+
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: x, y: y, vx: (Math.random() - 0.5) * 250, vy: (Math.random() - 0.5) * 250,
+      life: 1.0, c: color, r: Math.random() * 4 + 2 
+    });
+  }
+}
+
+function gameOver(x, y) {
+  if(!running) return; running = false;
+  spawnParticles(x, y, '#ff4757', 30);
+  if(navigator.vibrate) navigator.vibrate([100,50,100]);
+  setTimeout(() => {
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('gameOverModal').classList.remove('hidden');
+    document.getElementById('pauseBtn').style.display = 'none';
+    document.getElementById('menuOverlay').style.display = 'flex';
+    document.getElementById('hudScores').classList.add('hidden');
+  }, 600);
+}
+
+function updateHUD() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('high').textContent = store.high;
+  document.getElementById('coins').textContent = store.coins;
+  const c = getCoinColor();
+  document.getElementById('activeCoinIcon').style.backgroundImage = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%23${c.c1.replace('#','')}' stroke='%23${c.c2.replace('#','')}' stroke-width='2'/%3E%3Cpath d='M12 6v12M6 12h12' stroke='%23${c.c2.replace('#','')}' stroke-width='2'/%3E%3C/svg%3E")`;
+}
+
+function saveData() {
+  if (score > store.high) store.high = score;
+  localStorage.setItem('tc_coins', store.coins);
+  localStorage.setItem('tc_high', store.high);
+  localStorage.setItem('tc_owned', JSON.stringify(store.ownedCars));
+  localStorage.setItem('tc_roads', JSON.stringify(store.ownedRoads));
+  localStorage.setItem('tc_coin_skins', JSON.stringify(store.ownedCoins));
+  localStorage.setItem('tc_left', equipped.left);
+  localStorage.setItem('tc_right', equipped.right);
+  localStorage.setItem('tc_road', equipped.road);
+  localStorage.setItem('tc_coin', equipped.coin);
+}
+
+function showInfoModal(title, msg) {
+  return new Promise(resolve => {
+    const root = document.getElementById('inAppModalRoot'); root.innerHTML = '';
+    const bd = document.createElement('div'); bd.className = 'modal-backdrop';
+    const box = document.createElement('div'); box.className = 'modal';
+    box.innerHTML = `<h3 style="color:#ffd700">${title}</h3><p style="color:#e9fbf7;margin:15px 0">${msg}</p>`;
+    const acts = document.createElement('div'); acts.className = 'actions';
+    const bOk = document.createElement('button'); bOk.textContent = 'Tamam'; 
+    bOk.style.background='#ffd700'; bOk.style.color='#000'; 
+    bOk.onclick = () => { root.innerHTML=''; resolve(); };
+    acts.append(bOk); box.append(acts); bd.append(box); root.append(bd); root.style.display = 'block';
+  });
+}
+
+function showModal(title, msg) {
+  return new Promise(resolve => {
+    const root = document.getElementById('inAppModalRoot'); root.innerHTML = '';
+    const bd = document.createElement('div'); bd.className = 'modal-backdrop';
+    const box = document.createElement('div'); box.className = 'modal';
+    box.innerHTML = `<h3>${title}</h3><p style="color:#ccc;margin:15px 0">${msg}</p>`;
+    const acts = document.createElement('div'); acts.className = 'actions';
+    const bC = document.createElement('button'); bC.textContent = 'İptal'; bC.style.background='#333'; bC.onclick = () => { root.innerHTML=''; resolve(false); };
+    const bO = document.createElement('button'); bO.textContent = 'Satın Al'; bO.style.background='#ffd700'; bO.style.color='#000'; bO.onclick = () => { root.innerHTML=''; resolve(true); };
+    acts.append(bC, bO); box.append(acts); bd.append(box); root.append(bd); root.style.display = 'block';
+  });
+}
+
+async function openBuyCoins() {
+  document.getElementById('purchaseModal').classList.remove('hidden');
+}
+
+function confirmPurchase() {
+  store.coins += 5000;
+  saveData();
+  updateHUD();
+  document.getElementById('purchaseModal').classList.add('hidden');
+  showInfoModal("Başarılı", "5000 Coin hesabına eklendi!");
+}
+
+async function equipRoad(id) {
+  equipped.road = id; saveData();
+  renderGarage(); // Update list to show active state
+  await showInfoModal("Başarılı", "Yeni yol teması aktif edildi.");
+}
+
+async function equipCoin(id) {
+  equipped.coin = id; saveData(); updateHUD();
+  renderGarage(); // Update list to show active state
+  await showInfoModal("Başarılı", "Coin görünümü değiştirildi.");
+}
+
+function filterShop(type) {
+  currentShopTab = type;
+  document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderShop();
+}
+
+function renderShop() {
+  const list = document.getElementById('shopList'); list.innerHTML = '';
+  if (currentShopTab === 'cars') {
+    CAR_DEFS.forEach(item => {
+      if (store.ownedCars.includes(item.id)) return; 
+      createShopCard(list, item, 'car');
+    });
+  } else if (currentShopTab === 'roads') {
+    ROAD_DEFS.forEach(item => {
+      if (store.ownedRoads.includes(item.id)) return;
+      createShopCard(list, item, 'road');
+    });
+  } else if (currentShopTab === 'coins') {
+    COIN_DEFS.forEach(item => {
+      if (store.ownedCoins.includes(item.id)) return;
+      createShopCard(list, item, 'coin');
+    });
+  }
+}
+
+function createShopCard(container, item, type) {
+  const d = document.createElement('div'); d.className = 'shop-item';
+  let previewHTML = '';
+  if(type === 'car') previewHTML = `<div class="car-preview locked" onclick="openPreview('${item.id}')"><img src="${carCache[item.id].src}"></div>`;
+  else if (type === 'road') previewHTML = `<div class="asset-preview" style="background:linear-gradient(to bottom, ${item.bg1}, ${item.bg2}); color:${item.line}">YOL</div>`;
+  else if (type === 'coin') previewHTML = `<div class="asset-preview" style="background:#111; color:${item.c1}">●</div>`;
+
+  d.innerHTML = `<div class="lock-badge"><i class="coin-icon"></i> ${item.cost}</div>
+                 <div style="font-weight:bold;color:#aaa;font-size:14px">${item.name}</div>
+                 ${previewHTML}
+                 <button class="btn-buy" onclick="buyItem('${item.id}', '${type}')">AL</button>`;
+  container.append(d);
+}
+
+// --- GÜNCELLENMİŞ GARAJ RENDER ---
+function renderGarage() {
+  const list = document.getElementById('garageList'); list.innerHTML = '';
+  
+  // 1. CARS
+  store.ownedCars.forEach(id => {
+    const c = CAR_DEFS.find(x => x.id === id);
+    if(!c) return;
+    
+    const isEquippedLeft = (equipped.left === id);
+    const isEquippedRight = (equipped.right === id);
+    
+    // Kutu Stili: Eğer herhangi bir tarafta seçiliyse parlasın
+    let itemClass = 'shop-item';
+    if(isEquippedLeft) itemClass += ' equipped-left';
+    if(isEquippedRight) itemClass += ' equipped-right';
+
+    // Buton Stilleri
+    const btnLeftClass = isEquippedLeft ? 'btn-equip active-left' : 'btn-equip';
+    const btnLeftText = isEquippedLeft ? 'SOLDA' : 'SOL';
+    
+    const btnRightClass = isEquippedRight ? 'btn-equip active-right' : 'btn-equip';
+    const btnRightText = isEquippedRight ? 'SAĞDA' : 'SAĞ';
+
+    const d = document.createElement('div'); d.className = itemClass;
+    d.innerHTML = `
+      <div style="font-weight:bold">${c.name}</div>
+      <div class="car-preview"><img src="${carCache[id].src}"></div>
+      <div class="btn-inline">
+        <button class="${btnLeftClass}" onclick="equipCar('${id}','left')">${btnLeftText}</button>
+        <button class="${btnRightClass}" onclick="equipCar('${id}','right')">${btnRightText}</button>
+      </div>`;
+    list.append(d);
+  });
+
+  // 2. ROADS
+  store.ownedRoads.forEach(id => {
+    const r = ROAD_DEFS.find(x => x.id === id);
+    if(!r) return;
+    
+    const isActive = (equipped.road === id);
+    const itemClass = isActive ? 'shop-item equipped-active' : 'shop-item';
+    const btnClass = isActive ? 'btn-equip active-general' : 'btn-equip';
+    const btnText = isActive ? 'SEÇİLİ' : 'KULLAN';
+
+    const d = document.createElement('div'); d.className = itemClass;
+    d.innerHTML = `<div style="font-weight:bold">${r.name}</div>
+                   <div class="asset-preview" style="background:linear-gradient(${r.bg1}, ${r.bg2})"></div>
+                   <button class="${btnClass}" style="width:100%" onclick="equipRoad('${id}')">${btnText}</button>`;
+    list.append(d);
+  });
+
+  // 3. COINS
+  store.ownedCoins.forEach(id => {
+    const c = COIN_DEFS.find(x => x.id === id);
+    if(!c) return;
+    
+    const isActive = (equipped.coin === id);
+    const itemClass = isActive ? 'shop-item equipped-active' : 'shop-item';
+    const btnClass = isActive ? 'btn-equip active-general' : 'btn-equip';
+    const btnText = isActive ? 'SEÇİLİ' : 'KULLAN';
+
+    const d = document.createElement('div'); d.className = itemClass;
+    d.innerHTML = `<div style="font-weight:bold">${c.name}</div>
+                   <div class="asset-preview" style="color:${c.c1}">●</div>
+                   <button class="${btnClass}" style="width:100%" onclick="equipCoin('${id}')">${btnText}</button>`;
+    list.append(d);
+  });
+}
+
+window.buyItem = async (id, type) => {
+  let item, list;
+  if(type === 'car') { item = CAR_DEFS.find(x => x.id === id); list = store.ownedCars; }
+  if(type === 'road') { item = ROAD_DEFS.find(x => x.id === id); list = store.ownedRoads; }
+  if(type === 'coin') { item = COIN_DEFS.find(x => x.id === id); list = store.ownedCoins; }
+
+  if (await showModal(item.name, `${item.cost} coin ödensin mi?`)) {
+    if (store.coins >= item.cost) {
+      store.coins -= item.cost;
+      list.push(id);
+      saveData(); updateHUD(); renderShop(); renderGarage();
+      await showInfoModal("Tebrikler", `${item.name} satın alındı!`);
+    } else {
+      await showInfoModal("Hata", "Yetersiz Bakiye!");
+    }
+  }
+};
+
+window.equipCar = async (id, side) => {
+  if (equipped[side] === id) return;
+  equipped[side] = id; 
+  players[side].carId = id; 
+  saveData();
+  renderGarage(); 
+  document.getElementById(side === 'left' ? 'leftCarName' : 'rightCarName').textContent = CAR_DEFS.find(c=>c.id===id).name;
+};
+
+window.openPreview = (id) => {
+  const c = CAR_DEFS.find(x => x.id === id);
+  document.getElementById('previewBigBox').innerHTML = `<img src="${carCache[id].src}">`;
+  document.getElementById('previewTitle').textContent = c.name;
+  document.getElementById('previewStatus').textContent = store.owned.includes(id) ? "Garajda Var" : `${c.cost} Coin`;
+  document.getElementById('previewModal').classList.remove('hidden');
+};
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.tabContent').forEach(x => x.classList.add('hidden'));
+  t.classList.add('active');
+  document.getElementById('tab'+t.dataset.tab.charAt(0).toUpperCase()+t.dataset.tab.slice(1)).classList.remove('hidden');
+  if(t.dataset.tab === 'shop') renderShop();
+});
+
+function startGame() {
+  score=0; obstacles=[]; particles=[]; running=true; paused=false; spawnTimer=0;
+  GAME_MODE = parseInt(document.getElementById('gameMode').value);
+  LANE_COUNT = (GAME_MODE === 1) ? 2 : 4;
+  players.left.lane=0; players.right.lane=2;
+  players.left.x = null; players.right.x = null;
+  updateHUD();
+  document.getElementById('menuOverlay').style.display='none';
+  document.getElementById('pauseBtn').style.display='flex';
+  document.getElementById('hudScores').classList.remove('hidden');
+  lastTime = performance.now(); requestAnimationFrame(update);
+}
+document.getElementById('playNow').onclick = startGame;
+
+function togglePause() {
+  if(!running) return; paused = !paused;
+  document.getElementById('pauseModal').classList.toggle('hidden', !paused);
+  document.getElementById('pauseBtn').textContent = paused ? '▶' : 'II';
+  if(!paused) { lastTime = performance.now(); requestAnimationFrame(update); }
+}
+
+document.getElementById('pauseBtn').onclick = togglePause;
+document.getElementById('resumeBtn').onclick = togglePause;
+document.getElementById('pauseRetryBtn').onclick = () => { togglePause(); startGame(); };
+document.getElementById('pauseMenuBtn').onclick = () => location.reload();
+document.getElementById('retryBtn').onclick = () => { document.getElementById('gameOverModal').classList.add('hidden'); startGame(); };
+document.getElementById('menuBtn').onclick = () => location.reload();
+
+function handleInput(e, clientX) {
+  if (running && !paused) {
+     if(e.cancelable) e.preventDefault(); e.stopPropagation(); 
+     if (GAME_MODE === 1) {
+        players.left.lane = players.left.lane === 0 ? 1 : 0;
+     } else {
+        const mid = window.innerWidth / 2;
+        if (clientX < mid) players.left.lane = players.left.lane === 0 ? 1 : 0;
+        else players.right.lane = players.right.lane === 2 ? 3 : 2;
+     }
+  }
+}
+canvas.addEventListener('touchstart', e => handleInput(e, e.touches[0].clientX), {passive: false});
+canvas.addEventListener('mousedown', e => handleInput(e, e.clientX));
+window.addEventListener('keydown', e => {
+  if(!running) return;
+  if(e.key==='p') { togglePause(); return; }
+  if (GAME_MODE === 1) {
+    if(e.key==='a' || e.key==='l' || e.key==='ArrowLeft' || e.key==='ArrowRight') players.left.lane = 1 - players.left.lane;
+  } else {
+    if(e.key==='a') players.left.lane = 1 - players.left.lane;
+    if(e.key==='l') players.right.lane = 5 - players.right.lane; 
+  }
+});
+
+window.onload = function() {
+  init();
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('payment') === 'success') {
+     store.coins += 5000; saveData(); updateHUD();
+     showInfoModal("Ödeme Başarılı", "5000 Coin hesabınıza eklendi! Teşekkürler.");
+     window.history.replaceState({}, document.title, window.location.pathname);
+  }
+};
+
+function init() {
+  renderGarage(); renderShop(); updateHUD();
+  document.getElementById('hudScores').classList.add('hidden');
+  document.getElementById('leftCarName').textContent = CAR_DEFS.find(c=>c.id===equipped.left).name;
+  document.getElementById('rightCarName').textContent = CAR_DEFS.find(c=>c.id===equipped.right).name;
+}
+</script>
+</body>
+</html>
