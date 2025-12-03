@@ -8,42 +8,33 @@
 <meta name="apple-mobile-web-app-title" content="Two Cars">
 <meta name="theme-color" content="#1a1a2e">
 
-<title>Two Cars — iOS Fullscreen</title>
+<title>Two Cars — Final UI Polish</title>
 <style>
 :root{
   --bg-1:#1a1a2e; --bg-2:#16213e; --panel: rgba(15, 52, 96, 0.98);
   --accent:#e94560; --muted:#533483; --text:#e9fbf7; --coin:#ffd700;
+  --btn-left-active: #3498db; --btn-right-active: #e67e22; --btn-selected: #27ae60;
 }
 
 html, body {
   height: 100%; margin: 0; 
   background: linear-gradient(180deg,var(--bg-1),var(--bg-2));
   font-family: 'Segoe UI', sans-serif; color: var(--text);
-  overflow: hidden; 
-  touch-action: none; 
-  overscroll-behavior: none;
+  overflow: hidden; touch-action: none; overscroll-behavior: none;
   -webkit-user-select: none; user-select: none;
-  -webkit-touch-callout: none;
 }
 
-.wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:0;box-sizing:border-box}
+.wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:10px;box-sizing:border-box}
 
 canvas{
-  width:100%; max-width:480px; height:100%; 
-  background:transparent; 
-  /* iOS Safe Area uyumu için üstten boşluk bırakmıyoruz, canvas full kaplasın */
-  display:block;
+  width:100%; max-width:480px; height:100%; max-height:850px;
+  background:transparent; border-radius:16px;
+  box-shadow:0 20px 50px rgba(0,0,0,0.9); display:block;
   touch-action: none; 
 }
 
-/* --- HUD (ÇENTİK UYUMU EKLENDİ) --- */
-.hud-pos { 
-  position:fixed; left:20px; z-index:4000; pointer-events:none; 
-  text-shadow:0 2px 4px rgba(0,0,0,0.8);
-  /* Çentik (Notch) için güvenli alan */
-  top: max(20px, env(safe-area-inset-top)); 
-}
-
+/* --- HUD --- */
+.hud-pos { position:fixed; left:20px; z-index:4000; pointer-events:none; text-shadow:0 2px 4px rgba(0,0,0,0.8); top: max(20px, env(safe-area-inset-top)); }
 .hud-coins { pointer-events:auto !important; }
 
 .add-coin-btn {
@@ -60,15 +51,10 @@ canvas{
   background-size: contain; background-repeat: no-repeat;
 }
 
-/* Skorlar biraz daha aşağıda */
 .hud-scores { top: max(60px, calc(env(safe-area-inset-top) + 40px)); transition: opacity 0.3s; }
 .hud-scores .score{font-weight:900;font-size:32px;color:#fff;letter-spacing:1px}
 
-/* Kontroller de çentik altına inmesin */
-.controls{
-  position:fixed; right:20px; z-index:4000;
-  top: max(20px, env(safe-area-inset-top));
-}
+.controls{position:fixed;right:20px;top:20px;z-index:4000; top: max(20px, env(safe-area-inset-top));}
 .controls button{background:var(--accent);border:none;padding:12px 16px;border-radius:12px;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(233, 69, 96, 0.4); font-size:18px}
 #pauseBtn { width: 50px; display: none; justify-content: center; }
 
@@ -98,10 +84,16 @@ canvas{
 .shop-item{
   background:rgba(255,255,255,0.05); padding:12px; border-radius:16px; 
   display:flex; flex-direction:column; gap:10px; position:relative;
-  border:1px solid rgba(255,255,255,0.05); transition:transform 0.2s;
+  border:2px solid transparent; /* Varsayılan sınır */
+  transition:transform 0.2s, border-color 0.3s, box-shadow 0.3s;
 }
 .shop-item:active{transform:scale(0.98)}
 .locked{opacity:0.5; filter:grayscale(0.8)}
+
+/* --- YENİ SEÇİLİ ÖĞE STİLLERİ --- */
+.shop-item.equipped-left { border-color: var(--btn-left-active); box-shadow: 0 0 15px rgba(52, 152, 219, 0.2); }
+.shop-item.equipped-right { border-color: var(--btn-right-active); box-shadow: 0 0 15px rgba(230, 126, 34, 0.2); }
+.shop-item.equipped-active { border-color: var(--btn-selected); box-shadow: 0 0 15px rgba(39, 174, 96, 0.2); }
 
 .car-preview{
   height: 100px; width:100%; border-radius:12px; display:flex; align-items:center; justify-content:center;
@@ -118,7 +110,14 @@ canvas{
 
 .btn-buy{width:100%; padding:10px; border:none; border-radius:8px; font-weight:800; cursor:pointer; background:#ffd700; color:#000; box-shadow:0 4px 10px rgba(255, 215, 0, 0.3)}
 .btn-inline{display:flex; gap:8px}
-.btn-equip{flex:1; padding:8px; font-size:11px; border:none; border-radius:8px; cursor:pointer; background:#4db6ac; color:#fff; font-weight:800}
+.btn-equip{
+  flex:1; padding:10px 5px; font-size:11px; border:none; border-radius:8px; cursor:pointer; 
+  background:#2c3e50; color:#aaa; font-weight:800; border: 1px solid transparent; transition:0.3s;
+}
+/* Buton Aktiflik Renkleri */
+.btn-equip.active-left { background: var(--btn-left-active); color: white; border-color:white; box-shadow: 0 0 10px rgba(52, 152, 219, 0.5); cursor: default; }
+.btn-equip.active-right { background: var(--btn-right-active); color: white; border-color:white; box-shadow: 0 0 10px rgba(230, 126, 34, 0.5); cursor: default; }
+.btn-equip.active-general { background: var(--btn-selected); color: white; border-color:white; box-shadow: 0 0 10px rgba(39, 174, 96, 0.5); cursor: default; }
 
 /* MODALS */
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:9000;padding:20px}
@@ -256,7 +255,21 @@ canvas{
   </div>
 </div>
 
-<div class="footer-note">v7.0 iOS Fullscreen</div>
+<div id="purchaseModal" class="modal-backdrop hidden" style="z-index:11000">
+  <div class="modal">
+    <h3 style="color:#ffd700">Mağaza</h3>
+    <p style="color:#ccc; margin-bottom:20px">5000 Coin Satın Al</p>
+    <div style="background:rgba(255,255,255,0.1); padding:15px; border-radius:10px; margin-bottom:20px; font-size:24px; font-weight:bold; color:#fff">
+      10.00 TL
+    </div>
+    <div class="actions">
+      <button onclick="document.getElementById('purchaseModal').classList.add('hidden')" style="background:#333; color:#fff">İptal</button>
+      <button onclick="confirmPurchase()" style="background:#27ae60; color:#fff">SATIN AL</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer-note">v9.5 Selected States</div>
 
 <script>
 // --- 1. DEFINITIONS ---
@@ -550,7 +563,6 @@ function saveData() {
   localStorage.setItem('tc_coin', equipped.coin);
 }
 
-// --- YENİ CUSTOM INFO MODAL ---
 function showInfoModal(title, msg) {
   return new Promise(resolve => {
     const root = document.getElementById('inAppModalRoot'); root.innerHTML = '';
@@ -578,18 +590,27 @@ function showModal(title, msg) {
   });
 }
 
-// --- AKSİYONLAR ---
 async function openBuyCoins() {
-  await showInfoModal("Market", "Coin satın alma özelliği çok yakında!");
+  document.getElementById('purchaseModal').classList.remove('hidden');
+}
+
+function confirmPurchase() {
+  store.coins += 5000;
+  saveData();
+  updateHUD();
+  document.getElementById('purchaseModal').classList.add('hidden');
+  showInfoModal("Başarılı", "5000 Coin hesabına eklendi!");
 }
 
 async function equipRoad(id) {
   equipped.road = id; saveData();
+  renderGarage(); // Update UI
   await showInfoModal("Başarılı", "Yeni yol teması aktif edildi.");
 }
 
 async function equipCoin(id) {
   equipped.coin = id; saveData(); updateHUD();
+  renderGarage(); // Update UI
   await showInfoModal("Başarılı", "Coin görünümü değiştirildi.");
 }
 
@@ -634,27 +655,72 @@ function createShopCard(container, item, type) {
   container.append(d);
 }
 
+// --- GÜNCELLENMİŞ GARAJ RENDER ---
 function renderGarage() {
   const list = document.getElementById('garageList'); list.innerHTML = '';
+  
+  // 1. CARS
   store.ownedCars.forEach(id => {
     const c = CAR_DEFS.find(x => x.id === id);
     if(!c) return;
-    const d = document.createElement('div'); d.className = 'shop-item';
-    d.innerHTML = `<div style="font-weight:bold">${c.name}</div><div class="car-preview"><img src="${carCache[id].src}"></div><div class="btn-inline"><button class="btn-equip" onclick="equipCar('${id}','left')">SOL</button><button class="btn-equip" style="background:#0f3460" onclick="equipCar('${id}','right')">SAĞ</button></div>`;
+    
+    const isEquippedLeft = (equipped.left === id);
+    const isEquippedRight = (equipped.right === id);
+    
+    // Kutu Stili: Eğer herhangi bir tarafta seçiliyse parlasın
+    let itemClass = 'shop-item';
+    if(isEquippedLeft) itemClass += ' equipped-left';
+    if(isEquippedRight) itemClass += ' equipped-right';
+
+    // Buton Stilleri
+    const btnLeftClass = isEquippedLeft ? 'btn-equip active-left' : 'btn-equip';
+    const btnLeftText = isEquippedLeft ? 'SOLDA' : 'SOL';
+    
+    const btnRightClass = isEquippedRight ? 'btn-equip active-right' : 'btn-equip';
+    const btnRightText = isEquippedRight ? 'SAĞDA' : 'SAĞ';
+
+    const d = document.createElement('div'); d.className = itemClass;
+    d.innerHTML = `
+      <div style="font-weight:bold">${c.name}</div>
+      <div class="car-preview"><img src="${carCache[id].src}"></div>
+      <div class="btn-inline">
+        <button class="${btnLeftClass}" onclick="equipCar('${id}','left')">${btnLeftText}</button>
+        <button class="${btnRightClass}" onclick="equipCar('${id}','right')">${btnRightText}</button>
+      </div>`;
     list.append(d);
   });
+
+  // 2. ROADS
   store.ownedRoads.forEach(id => {
     const r = ROAD_DEFS.find(x => x.id === id);
     if(!r) return;
-    const d = document.createElement('div'); d.className = 'shop-item';
-    d.innerHTML = `<div style="font-weight:bold">${r.name}</div><div class="asset-preview" style="background:linear-gradient(${r.bg1}, ${r.bg2})"></div><button class="btn-equip" style="width:100%" onclick="equipRoad('${id}')">KULLAN</button>`;
+    
+    const isActive = (equipped.road === id);
+    const itemClass = isActive ? 'shop-item equipped-active' : 'shop-item';
+    const btnClass = isActive ? 'btn-equip active-general' : 'btn-equip';
+    const btnText = isActive ? 'SEÇİLİ' : 'KULLAN';
+
+    const d = document.createElement('div'); d.className = itemClass;
+    d.innerHTML = `<div style="font-weight:bold">${r.name}</div>
+                   <div class="asset-preview" style="background:linear-gradient(${r.bg1}, ${r.bg2})"></div>
+                   <button class="${btnClass}" style="width:100%" onclick="equipRoad('${id}')">${btnText}</button>`;
     list.append(d);
   });
+
+  // 3. COINS
   store.ownedCoins.forEach(id => {
     const c = COIN_DEFS.find(x => x.id === id);
     if(!c) return;
-    const d = document.createElement('div'); d.className = 'shop-item';
-    d.innerHTML = `<div style="font-weight:bold">${c.name}</div><div class="asset-preview" style="color:${c.c1}">●</div><button class="btn-equip" style="width:100%" onclick="equipCoin('${id}')">KULLAN</button>`;
+    
+    const isActive = (equipped.coin === id);
+    const itemClass = isActive ? 'shop-item equipped-active' : 'shop-item';
+    const btnClass = isActive ? 'btn-equip active-general' : 'btn-equip';
+    const btnText = isActive ? 'SEÇİLİ' : 'KULLAN';
+
+    const d = document.createElement('div'); d.className = itemClass;
+    d.innerHTML = `<div style="font-weight:bold">${c.name}</div>
+                   <div class="asset-preview" style="color:${c.c1}">●</div>
+                   <button class="${btnClass}" style="width:100%" onclick="equipCoin('${id}')">${btnText}</button>`;
     list.append(d);
   });
 }
@@ -678,9 +744,12 @@ window.buyItem = async (id, type) => {
 };
 
 window.equipCar = async (id, side) => {
-  equipped[side] = id; players[side].carId = id; saveData();
-  document.getElementById(side+'CarName').textContent = CAR_DEFS.find(c=>c.id===id).name;
-  await showInfoModal("Başarılı", `${side.toUpperCase()} tarafına araç seçildi.`);
+  if (equipped[side] === id) return; // Zaten seçiliyse işlem yapma
+  equipped[side] = id; 
+  players[side].carId = id; 
+  saveData();
+  renderGarage(); // Anında güncelle
+  document.getElementById(side === 'left' ? 'leftCarName' : 'rightCarName').textContent = CAR_DEFS.find(c=>c.id===id).name;
 };
 
 window.openPreview = (id) => {
@@ -699,6 +768,7 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   if(t.dataset.tab === 'shop') renderShop();
 });
 
+// START
 function startGame() {
   score=0; obstacles=[]; particles=[]; running=true; paused=false; spawnTimer=0;
   GAME_MODE = parseInt(document.getElementById('gameMode').value);
@@ -752,7 +822,17 @@ window.addEventListener('keydown', e => {
   }
 });
 
-init();
+// STARTUP LOGIC: CHECK FOR PAYMENT REDIRECT
+window.onload = function() {
+  init();
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('payment') === 'success') {
+     store.coins += 5000; saveData(); updateHUD();
+     showInfoModal("Ödeme Başarılı", "5000 Coin hesabınıza eklendi! Teşekkürler.");
+     window.history.replaceState({}, document.title, window.location.pathname);
+  }
+};
+
 function init() {
   renderGarage(); renderShop(); updateHUD();
   document.getElementById('hudScores').classList.add('hidden');
